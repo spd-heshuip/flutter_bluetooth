@@ -26,6 +26,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -74,6 +76,8 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
     // Pending call and result for startScan, in the case where permissions are needed
     private MethodCall pendingCall;
     private Result pendingResult;
+
+    private Handler mHandler = new Handler(Looper.getMainLooper());
 
     /**
      * Plugin registration.
@@ -769,8 +773,14 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            log(LogLevel.DEBUG, "[onConnectionStateChange] status: " + status + " newState: " + newState);
-            channel.invokeMethod("DeviceState", ProtoMaker.from(gatt.getDevice(), newState).toByteArray());
+
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    log(LogLevel.DEBUG, "[onConnectionStateChange] status: " + status + " newState: " + newState);
+                    channel.invokeMethod("DeviceState", ProtoMaker.from(gatt.getDevice(), newState).toByteArray());
+                }
+            });
         }
 
         @Override
