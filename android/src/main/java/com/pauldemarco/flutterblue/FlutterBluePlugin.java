@@ -843,8 +843,13 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         }
 
         @Override
-        public void onCharacteristicChanged(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
+            public void onCharacteristicChanged(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
             log(LogLevel.DEBUG, "[onCharacteristicChanged] uuid: " + characteristic.getUuid().toString());
+
+            log(LogLevel.DEBUG,"length=" + characteristic.getValue().length);
+
+            String value = new String(characteristic.getValue());
+            log(LogLevel.DEBUG,"value=" + value);
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {

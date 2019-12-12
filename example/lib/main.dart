@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:bluetooth/bluetooth.dart';
@@ -152,7 +153,9 @@ class _FlutterBlueAppState extends State<FlutterBlueApp> {
   }
 
   _writeCharacteristic(BluetoothCharacteristic c) async {
-    await device.writeCharacteristic(c, [0x12, 0x34],
+    List<int> list = "START".codeUnits;
+    Uint8List bytes = Uint8List.fromList(list);
+    await device.writeCharacteristic(c, bytes,
         type: CharacteristicWriteType.withResponse);
     setState(() {});
   }
@@ -169,17 +172,18 @@ class _FlutterBlueAppState extends State<FlutterBlueApp> {
 
   _setNotification(BluetoothCharacteristic c) async {
     if (c.isNotifying) {
+      print("setNotifyValue false");
       await device.setNotifyValue(c, false);
       // Cancel subscription
       valueChangedSubscriptions[c.id]?.cancel();
       valueChangedSubscriptions.remove(c.id);
     } else {
+      print("setNotifyValue true");
+
       await device.setNotifyValue(c, true);
       // ignore: cancel_subscriptions
       final sub = device.onValueChanged(c).listen((d) {
-        setState(() {
-          print('onValueChanged $d');
-        });
+        print('onValueChanged $d');
       });
       // Add to map
       valueChangedSubscriptions[c.id] = sub;
