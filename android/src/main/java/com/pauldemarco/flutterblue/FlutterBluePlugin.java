@@ -541,7 +541,11 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
          */
         // https://android.googlesource.com/platform/frameworks/base/+/android-9.0.0_r6/core/java/android/bluetooth/BluetoothGattService.java#253
         for (BluetoothGattCharacteristic c : service.getCharacteristics()) {
-            if (characteristicId.getUuid().equals(c.getUuid())) {
+            log(LogLevel.DEBUG,"c uuid:" + c.getUuid().toString());
+            log(LogLevel.DEBUG,"characteristicId uuid:" + characteristicId.getUuid());
+            if (characteristicId.getUuid().equals(c.getUuid().toString())) {
+                log(LogLevel.DEBUG,"c instance id:" + c.getInstanceId());
+                log(LogLevel.DEBUG,"characteristicId instance id:" + characteristicId.getInstanceId());
                 if(characteristicId.getInstanceId() == c.getInstanceId()) {
                     return c;
                 }
