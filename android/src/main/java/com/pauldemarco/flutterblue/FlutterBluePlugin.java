@@ -774,112 +774,145 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         @Override
         public void onConnectionStateChange(final BluetoothGatt gatt, final int status, final int newState) {
 
+            log(LogLevel.DEBUG, "[onConnectionStateChange] status: " + status + " newState: " + newState);
+
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    log(LogLevel.DEBUG, "[onConnectionStateChange] status: " + status + " newState: " + newState);
                     channel.invokeMethod("DeviceState", ProtoMaker.from(gatt.getDevice(), newState).toByteArray());
                 }
             });
         }
 
         @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+        public void onServicesDiscovered(final BluetoothGatt gatt, int status) {
             log(LogLevel.DEBUG, "[onServicesDiscovered] count: " + gatt.getServices().size() + " status: " + status);
-            if(servicesDiscoveredSink != null) {
-                Protos.DiscoverServicesResult.Builder p = Protos.DiscoverServicesResult.newBuilder();
-                p.setRemoteId(gatt.getDevice().getAddress());
-                for(BluetoothGattService s : gatt.getServices()) {
-                    p.addServices(ProtoMaker.from(gatt.getDevice(), s, gatt));
-                }
-                servicesDiscoveredSink.success(p.build().toByteArray());
-            }
-        }
 
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            log(LogLevel.DEBUG, "[onCharacteristicRead] uuid: " + characteristic.getUuid().toString() + " status: " + status);
-            if(characteristicReadSink != null) {
-                Protos.ReadCharacteristicResponse.Builder p = Protos.ReadCharacteristicResponse.newBuilder();
-                p.setRemoteId(gatt.getDevice().getAddress());
-                p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
-                characteristicReadSink.success(p.build().toByteArray());
-            }
-        }
-
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            log(LogLevel.DEBUG, "[onCharacteristicWrite] uuid: " + characteristic.getUuid().toString() + " status: " + status);
-            Protos.WriteCharacteristicRequest.Builder request = Protos.WriteCharacteristicRequest.newBuilder();
-            request.setRemoteId(gatt.getDevice().getAddress());
-            request.setCharacteristicId(ProtoMaker.from(characteristic));
-            request.setServiceUuid(characteristic.getService().getUuid().toString());
-            Protos.WriteCharacteristicResponse.Builder p = Protos.WriteCharacteristicResponse.newBuilder();
-            p.setRequest(request);
-            p.setSuccess(status == BluetoothGatt.GATT_SUCCESS);
-            channel.invokeMethod("WriteCharacteristicResponse", p.build().toByteArray());
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            log(LogLevel.DEBUG, "[onCharacteristicChanged] uuid: " + characteristic.getUuid().toString());
-            Protos.OnNotificationResponse.Builder p = Protos.OnNotificationResponse.newBuilder();
-            p.setRemoteId(gatt.getDevice().getAddress());
-            p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
-            channel.invokeMethod("OnValueChanged", p.build().toByteArray());
-        }
-
-        @Override
-        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            log(LogLevel.DEBUG, "[onDescriptorRead] uuid: " + descriptor.getUuid().toString() + " status: " + status);
-            if(descriptorReadSink != null) {
-                // Rebuild the ReadAttributeRequest and send back along with response
-                Protos.ReadDescriptorRequest.Builder q = Protos.ReadDescriptorRequest.newBuilder();
-                q.setRemoteId(gatt.getDevice().getAddress());
-                q.setCharacteristicId(ProtoMaker.from(descriptor.getCharacteristic()));
-                q.setDescriptorUuid(descriptor.getUuid().toString());
-                if(descriptor.getCharacteristic().getService().getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY) {
-                    q.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
-                } else {
-                    // Reverse search to find service
-                    for(BluetoothGattService s : gatt.getServices()) {
-                        for(BluetoothGattService ss : s.getIncludedServices()) {
-                            if(ss.getUuid().equals(descriptor.getCharacteristic().getService().getUuid())){
-                                q.setServiceUuid(s.getUuid().toString());
-                                q.setSecondaryServiceUuid(ss.getUuid().toString());
-                                break;
-                            }
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(servicesDiscoveredSink != null) {
+                        Protos.DiscoverServicesResult.Builder p = Protos.DiscoverServicesResult.newBuilder();
+                        p.setRemoteId(gatt.getDevice().getAddress());
+                        for(BluetoothGattService s : gatt.getServices()) {
+                            p.addServices(ProtoMaker.from(gatt.getDevice(), s, gatt));
                         }
+                        servicesDiscoveredSink.success(p.build().toByteArray());
                     }
                 }
-                Protos.ReadDescriptorResponse.Builder p = Protos.ReadDescriptorResponse.newBuilder();
-                p.setRequest(q);
-                p.setValue(ByteString.copyFrom(descriptor.getValue()));
-                descriptorReadSink.success(p.build().toByteArray());
-            }
+            });
 
         }
 
         @Override
-        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            log(LogLevel.DEBUG, "[onDescriptorWrite] uuid: " + descriptor.getUuid().toString() + " status: " + status);
-            Protos.WriteDescriptorRequest.Builder request = Protos.WriteDescriptorRequest.newBuilder();
-            request.setRemoteId(gatt.getDevice().getAddress());
-            request.setDescriptorUuid(descriptor.getUuid().toString());
-            request.setCharacteristicId(ProtoMaker.from(descriptor.getCharacteristic()));
-            request.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
-            Protos.WriteDescriptorResponse.Builder p = Protos.WriteDescriptorResponse.newBuilder();
-            p.setRequest(request);
-            p.setSuccess(status == BluetoothGatt.GATT_SUCCESS);
-            channel.invokeMethod("WriteDescriptorResponse", p.build().toByteArray());
+        public void onCharacteristicRead(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic, int status) {
+            log(LogLevel.DEBUG, "[onCharacteristicRead] uuid: " + characteristic.getUuid().toString() + " status: " + status);
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(characteristicReadSink != null) {
+                        Protos.ReadCharacteristicResponse.Builder p = Protos.ReadCharacteristicResponse.newBuilder();
+                        p.setRemoteId(gatt.getDevice().getAddress());
+                        p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
+                        characteristicReadSink.success(p.build().toByteArray());
+                    }
+                }
+            });
+        }
 
-            if(descriptor.getUuid().compareTo(CCCD_ID) == 0) {
-                // SetNotificationResponse
-                Protos.SetNotificationResponse.Builder q = Protos.SetNotificationResponse.newBuilder();
-                q.setRemoteId(gatt.getDevice().getAddress());
-                q.setCharacteristic(ProtoMaker.from(descriptor.getCharacteristic(), gatt));
-                channel.invokeMethod("SetNotificationResponse", q.build().toByteArray());
-            }
+        @Override
+        public void onCharacteristicWrite(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic, final int status) {
+            log(LogLevel.DEBUG, "[onCharacteristicWrite] uuid: " + characteristic.getUuid().toString() + " status: " + status);
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Protos.WriteCharacteristicRequest.Builder request = Protos.WriteCharacteristicRequest.newBuilder();
+                    request.setRemoteId(gatt.getDevice().getAddress());
+                    request.setCharacteristicId(ProtoMaker.from(characteristic));
+                    request.setServiceUuid(characteristic.getService().getUuid().toString());
+                    Protos.WriteCharacteristicResponse.Builder p = Protos.WriteCharacteristicResponse.newBuilder();
+                    p.setRequest(request);
+                    p.setSuccess(status == BluetoothGatt.GATT_SUCCESS);
+                    channel.invokeMethod("WriteCharacteristicResponse", p.build().toByteArray());
+                }
+            });
+        }
+
+        @Override
+        public void onCharacteristicChanged(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
+            log(LogLevel.DEBUG, "[onCharacteristicChanged] uuid: " + characteristic.getUuid().toString());
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Protos.OnNotificationResponse.Builder p = Protos.OnNotificationResponse.newBuilder();
+                    p.setRemoteId(gatt.getDevice().getAddress());
+                    p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
+                    channel.invokeMethod("OnValueChanged", p.build().toByteArray());
+                }
+            });
+        }
+
+        @Override
+        public void onDescriptorRead(final BluetoothGatt gatt, final BluetoothGattDescriptor descriptor, int status) {
+            log(LogLevel.DEBUG, "[onDescriptorRead] uuid: " + descriptor.getUuid().toString() + " status: " + status);
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(descriptorReadSink != null) {
+                        // Rebuild the ReadAttributeRequest and send back along with response
+                        Protos.ReadDescriptorRequest.Builder q = Protos.ReadDescriptorRequest.newBuilder();
+                        q.setRemoteId(gatt.getDevice().getAddress());
+                        q.setCharacteristicId(ProtoMaker.from(descriptor.getCharacteristic()));
+                        q.setDescriptorUuid(descriptor.getUuid().toString());
+                        if(descriptor.getCharacteristic().getService().getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY) {
+                            q.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
+                        } else {
+                            // Reverse search to find service
+                            for(BluetoothGattService s : gatt.getServices()) {
+                                for(BluetoothGattService ss : s.getIncludedServices()) {
+                                    if(ss.getUuid().equals(descriptor.getCharacteristic().getService().getUuid())){
+                                        q.setServiceUuid(s.getUuid().toString());
+                                        q.setSecondaryServiceUuid(ss.getUuid().toString());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        Protos.ReadDescriptorResponse.Builder p = Protos.ReadDescriptorResponse.newBuilder();
+                        p.setRequest(q);
+                        p.setValue(ByteString.copyFrom(descriptor.getValue()));
+                        descriptorReadSink.success(p.build().toByteArray());
+                    }
+                }
+            });
+
+        }
+
+        @Override
+        public void onDescriptorWrite(final BluetoothGatt gatt, final BluetoothGattDescriptor descriptor, final int status) {
+            log(LogLevel.DEBUG, "[onDescriptorWrite] uuid: " + descriptor.getUuid().toString() + " status: " + status);
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Protos.WriteDescriptorRequest.Builder request = Protos.WriteDescriptorRequest.newBuilder();
+                    request.setRemoteId(gatt.getDevice().getAddress());
+                    request.setDescriptorUuid(descriptor.getUuid().toString());
+                    request.setCharacteristicId(ProtoMaker.from(descriptor.getCharacteristic()));
+                    request.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
+                    Protos.WriteDescriptorResponse.Builder p = Protos.WriteDescriptorResponse.newBuilder();
+                    p.setRequest(request);
+                    p.setSuccess(status == BluetoothGatt.GATT_SUCCESS);
+                    channel.invokeMethod("WriteDescriptorResponse", p.build().toByteArray());
+
+                    if(descriptor.getUuid().compareTo(CCCD_ID) == 0) {
+                        // SetNotificationResponse
+                        Protos.SetNotificationResponse.Builder q = Protos.SetNotificationResponse.newBuilder();
+                        q.setRemoteId(gatt.getDevice().getAddress());
+                        q.setCharacteristic(ProtoMaker.from(descriptor.getCharacteristic(), gatt));
+                        channel.invokeMethod("SetNotificationResponse", q.build().toByteArray());
+                    }
+                }
+            });
         }
 
         @Override
